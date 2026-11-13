@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230B0B09'/%3E%3Cpath d='M8 22V10l8 7 8-7v12' stroke='%23D3FF24' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<title>Music Planner · Ton plan de sortie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Space+Mono:wght@400;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<!--
+  V2 du formulaire de campagne (13/11/2026).
+  Deux temps : on capture l'email en donnant le plan de sortie, puis on qualifie.
+  UNE SEULE LIGNE À REMPLIR avant l'envoi : CONFIG.endpoint (en bas du fichier).
+  Tant qu'il est vide, le formulaire prévient l'artiste et lui propose d'envoyer
+  ses réponses par mail : aucun lead n'est perdu silencieusement.
+  Les 4 valeurs à confirmer avec Jatedit avant la campagne : places, closeDate,
+  numProof (laisser vide si pas de chiffre vérifié), et l'endpoint.
+-->
+<style>
+/* Charte Music Planner, thème unique sombre. Une colonne étroite, une question par carte.
+   Le lime est réservé à l'état sélectionné, à l'action principale et à la rareté. */
+:root{
+  --bg:#0B0B09;
+  --card:#141411;
+  --line:#2B2B25;
+  --text:#F3F3EA;
+  --muted:#A6A698;
+  --lime:#D3FF24;
+  --on-lime:#0B0B09;
+  --error:#FF8A7A;
+  --display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Space Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:32px}
+body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.55 var(--body)}
+main{max-width:660px;margin:0 auto;padding:28px 18px 72px}
+.brand{font:700 .78rem/1 var(--display);letter-spacing:.12em;color:var(--lime);margin:0 0 22px;text-transform:uppercase}
+h1{font:700 clamp(1.45rem,5.2vw,2rem)/1.18 var(--display);margin:0 0 14px;text-wrap:balance}
+h2{font:700 clamp(1.25rem,4.6vw,1.6rem)/1.2 var(--display);margin:0 0 12px;text-wrap:balance}
+.lead{color:var(--muted);margin:0 0 14px;max-width:62ch}
+.promise{border:1px solid var(--lime);border-radius:12px;padding:12px 14px;margin:0 0 16px;background:rgba(211,255,36,.06);font-weight:700;max-width:62ch}
+.badge{display:block;font:700 .72rem/1.32 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--lime);background:rgba(211,255,36,.07);border:1px solid var(--line);border-left:3px solid var(--lime);border-radius:8px;padding:10px 12px;margin:0 0 18px}
+.stack{list-style:none;padding:0;margin:0 0 16px;color:var(--muted);font-size:.95rem}
+.stack li{position:relative;padding-left:22px;margin:0 0 6px}
+.stack li::before{content:"✓";position:absolute;left:0;color:var(--lime);font-weight:700}
+.meta{font:400 .82rem/1.4 var(--mono);color:var(--muted);margin:0 0 20px}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;margin:0 0 14px}
+.bar div{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--lime);transition:width .3s}
+.step{display:none}
+.step.on{display:block}
+form{display:flex;flex-direction:column;gap:14px}
+fieldset{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:18px 16px;margin:0;min-width:0}
+legend{float:left;width:100%;padding:0;margin:0 0 12px;font-weight:700;font-size:1.04rem;line-height:1.35}
+legend + *{clear:both}
+.num{display:block;font:400 .76rem/1 var(--mono);color:var(--lime);margin-bottom:8px;letter-spacing:.06em}
+.context{display:block;color:var(--muted);font-size:.95rem;font-weight:400;line-height:1.55;margin:0 0 12px}
+.hint{color:var(--muted);font-size:.88rem;margin:0 0 12px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opts label{position:relative;display:block;border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;background:var(--bg);font-weight:500;line-height:1.35}
+.opts input{position:absolute;opacity:0;width:1px;height:1px}
+.opts label:hover{border-color:var(--muted)}
+.opts label:has(input:checked){background:var(--lime);border-color:var(--lime);color:var(--on-lime);font-weight:700}
+.opts label:has(input:focus-visible){outline:2px solid var(--lime);outline-offset:2px}
+.fields{display:flex;flex-direction:column;gap:10px}
+.fields label{font-size:.88rem;color:var(--muted)}
+input[type=text],input[type=email],input[type=url]{display:block;width:100%;margin-top:6px;padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit}
+input[type=text]:focus-visible,input[type=email]:focus-visible,input[type=url]:focus-visible{outline:2px solid var(--lime);outline-offset:1px}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:.9rem;color:var(--text);margin-top:6px}
+.consent input{margin-top:4px;accent-color:var(--lime);width:18px;height:18px;flex:none}
+.err{color:var(--error);font-size:.92rem;min-height:1.4em;margin:0}
+button,.cta{display:block;width:100%;background:var(--lime);color:var(--on-lime);border:0;border-radius:12px;padding:15px 22px;font:700 .86rem/1.2 var(--display);letter-spacing:.03em;text-align:center;text-decoration:none;cursor:pointer}
+button:focus-visible,.cta:focus-visible{outline:2px solid var(--text);outline-offset:3px}
+button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);padding:11px 18px;font:500 .84rem/1.2 var(--body);letter-spacing:0}
+.foot{font:400 .78rem/1.5 var(--mono);color:var(--muted);margin:14px 0 0}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+#done{display:none;padding-top:12px}
+#done .cta{margin-top:20px}
+#dbg{display:none;border:1px dashed var(--lime);border-radius:12px;padding:14px;margin-top:28px;font:400 .8rem/1.5 var(--mono);white-space:pre-wrap;overflow-x:auto}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<p class="brand">Music Planner · Jatedit</p>
+<div class="bar"><div><i id="prog"></i></div></div>
+
+<!-- ÉTAPE 1 : on donne avant de demander -->
+<div class="step on" id="step1">
+  <span class="badge" id="badgePlaces">Membres fondateurs : 10 places</span>
+  <h1>Ta prochaine sortie, planifiée et chiffrée au même endroit</h1>
+  <p class="lead">Tes sorties, tes stats, ton budget et tes contrats au même endroit. Et du conseil : le Guide de l'artiste indépendant, un assistant IA, l'expérience d'un label.</p>
+  <p class="promise">Réponds à deux questions et reçois <strong>ton Plan de sortie</strong> sous 24 h. Gratuit, aucun accès à ta musique, aucun engagement.</p>
+  <ul class="stack">
+    <li>Ton Plan de sortie : la date, les actions, le budget</li>
+    <li>1 h par mois avec un producteur confirmé, pendant 1 an (membres fondateurs)</li>
+    <li>La vague d'onboarding de décembre, avant l'ouverture publique</li>
+  </ul>
+  <p class="meta" id="metaQ">2 questions maintenant, 5 ensuite pour affiner ton plan</p>
+
+  <form id="f1" novalidate>
+    <fieldset>
+      <legend><span class="num">01 / 07</span>Ton prochain lancement, c'est quand ?</legend>
+      <p class="hint">Single, EP, album, clip : la prochaine chose que tu sors.</p>
+      <div class="opts">
+        <label><input type="radio" name="sortie_quand" value="moins3" data-p="3">Dans moins de 3 mois</label>
+        <label><input type="radio" name="sortie_quand" value="3a6" data-p="2">Dans 3 à 6 mois</label>
+        <label><input type="radio" name="sortie_quand" value="plus6" data-p="1">Dans plus de 6 mois</label>
+        <label><input type="radio" name="sortie_quand" value="rien" data-p="0">Rien de prévu pour l'instant</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="num">02 / 07</span>Qu'est-ce qui te prend le plus de temps aujourd'hui ?</legend>
+      <p class="hint">Une seule réponse, celle qui te coûte le plus.</p>
+      <div class="opts">
+        <label><input type="radio" name="douleur" value="coordination">Planifier et coordonner mes sorties</label>
+        <label><input type="radio" name="douleur" value="stats">Suivre mes stats et mes revenus</label>
+        <label><input type="radio" name="douleur" value="budget">Gérer mon budget et mes factures</label>
+        <label><input type="radio" name="douleur" value="contrats">Mes contrats et mes droits</label>
+        <label><input type="radio" name="douleur" value="promo">Le marketing et la promotion</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="num">CONTACT</span>Où j'envoie ton plan</legend>
+      <div class="fields">
+        <label for="nom">Nom de scène ou de projet<input type="text" id="nom" name="nom" autocomplete="name"></label>
+        <label for="mail">Adresse email<input type="email" id="mail" name="email" autocomplete="email" inputmode="email"></label>
+        <label for="spotify">Lien de ton profil Spotify<input type="url" id="spotify" name="spotify" placeholder="https://open.spotify.com/artist/..." autocomplete="off"></label>
+        <label for="insta">Ton compte Instagram<input type="text" id="insta" name="insta" placeholder="@toncompte" autocomplete="off" spellcheck="false"></label>
+        <p class="hint" style="margin:0">Les deux sont optionnels, mais c'est ce qui rend le plan précis et les retours personnalisés.</p>
+        <label class="consent" for="rgpd"><input type="checkbox" id="rgpd"><span>J'accepte que Jatedit me recontacte au sujet de Music Planner et de mon plan de sortie. Mes données ne servent qu'à ça, et je peux demander leur suppression à tout moment. <strong>(obligatoire)</strong></span></label>
+        <label class="consent" for="news"><input type="checkbox" id="news"><span>Je veux aussi recevoir les prochaines rencontres et les nouveautés Music Planner. <em>(facultatif)</em></span></label>
+      </div>
+      <input class="hp" type="text" name="site_web" id="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    </fieldset>
+
+    <p class="err" id="err1" role="alert"></p>
+    <button type="submit">Recevoir mon Plan de sortie</button>
+    <p class="foot">Ensuite, 5 questions (40 secondes) pour que ton plan colle à ta situation.</p>
+  </form>
+</div>
+
+<!-- ÉTAPE 2 : qualification, après l'email capturé -->
+<div class="step" id="step2">
+  <h2>Encore 5 questions pour rendre ton plan précis</h2>
+  <p class="lead">Ton email est enregistré : tu recevras ton Plan de sortie même si tu fermes cette page maintenant.</p>
+
+  <form id="f2" novalidate>
+    <fieldset>
+      <legend><span class="num">03 / 07</span>Tu es…</legend>
+      <div class="opts">
+        <label><input type="radio" name="profil" value="solo">Artiste solo</label>
+        <label><input type="radio" name="profil" value="groupe">Groupe</label>
+        <label><input type="radio" name="profil" value="label">Label</label>
+        <label><input type="radio" name="profil" value="manager">Manager</label>
+        <label><input type="radio" name="profil" value="autre">Autre</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="num">04 / 07</span>Combien de sorties sur les 12 derniers mois ?</legend>
+      <div class="opts">
+        <label><input type="radio" name="sorties12" value="0" data-p="0">Aucune</label>
+        <label><input type="radio" name="sorties12" value="1a2" data-p="1">1 à 2</label>
+        <label><input type="radio" name="sorties12" value="3a5" data-p="2">3 à 5</label>
+        <label><input type="radio" name="sorties12" value="6plus" data-p="3">6 ou plus</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="num">05 / 07</span>Comment tu t'organises aujourd'hui ?</legend>
+      <p class="hint">Plusieurs choix possibles.</p>
+      <div class="opts">
+        <label><input type="checkbox" name="outils" value="excel">Excel / Google Sheets</label>
+        <label><input type="checkbox" name="outils" value="whatsapp">WhatsApp</label>
+        <label><input type="checkbox" name="outils" value="drive">Google Drive / Dropbox</label>
+        <label><input type="checkbox" name="outils" value="notion">Notion / Trello</label>
+        <label><input type="checkbox" name="outils" value="dedie">Un outil dédié aux sorties</label>
+        <label><input type="checkbox" name="outils" value="aucun">Aucun outil</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="num">06 / 07</span>Tes besoins principaux ?</legend>
+      <p class="hint">Jusqu'à 3 réponses.</p>
+      <div class="opts">
+        <label><input type="checkbox" name="besoins" value="coordination">Planifier et organiser mes sorties</label>
+        <label><input type="checkbox" name="besoins" value="stats">Suivre mes stats au même endroit</label>
+        <label><input type="checkbox" name="besoins" value="budget">Gérer mon budget</label>
+        <label><input type="checkbox" name="besoins" value="contrats">M'y retrouver dans mes contrats et mes droits</label>
+        <label><input type="checkbox" name="besoins" value="visibilite">Visibilité</label>
+        <label><input type="checkbox" name="besoins" value="contacts">Contacts avec des pros</label>
+        <label><input type="checkbox" name="besoins" value="retours">Retours sur ma musique</label>
+        <label><input type="checkbox" name="besoins" value="formation">Formation</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="num">07 / 07</span>Combien serais-tu prêt à investir chaque mois ?</legend>
+      <p class="context">Music Planner réunit tes sorties, tes stats, ton budget, tes contrats, une communauté d'artistes et de pros, et du conseil : le Guide de l'artiste indépendant, un assistant IA, et pour les membres fondateurs un rendez-vous par mois avec un producteur confirmé.</p>
+      <div class="opts">
+        <label><input type="radio" name="budget" value="0" data-p="0">Rien, uniquement gratuit</label>
+        <label><input type="radio" name="budget" value="moins10" data-p="1">Moins de 10 €/mois</label>
+        <label><input type="radio" name="budget" value="10a19" data-p="2">10 à 19 €/mois</label>
+        <label><input type="radio" name="budget" value="20a34" data-p="3">20 à 34 €/mois</label>
+        <label><input type="radio" name="budget" value="35plus" data-p="4">35 €/mois et plus</label>
+      </div>
+    </fieldset>
+
+    <p class="err" id="err2" role="alert"></p>
+    <button type="submit">Envoyer et recevoir mon plan</button>
+    <button class="ghost" type="button" id="skip">Passer cette étape</button>
+  </form>
+</div>
+
+<!-- ÉCRANS DE FIN : un CTA partout, jamais de cul-de-sac -->
+<div id="done">
+  <h2 id="doneTitle"></h2>
+  <p class="lead" id="doneText"></p>
+  <p class="promise" id="donePromise"></p>
+  <a class="cta" id="doneCta" target="_blank" rel="noopener"></a>
+  <p class="foot" id="doneFoot"></p>
+  <div id="dbg"></div>
+</div>
+</main>
+
+<script>
+/* ============================================================
+   CONFIG : la seule partie à remplir avant l'envoi
+   ============================================================ */
+const CONFIG = {
+  // Où partent les réponses. Vide = le formulaire prévient l'artiste et lui
+  // propose d'envoyer ses réponses par mail (aucun lead perdu en silence).
+  endpoint: "https://n8n.daywoncloud.eu/webhook/musicplanner-form",
+  // Rareté : à confirmer avec Jatedit. Si les places ne sont pas tenues,
+  // retirer le badge plutôt que d'annoncer un chiffre faux.
+  places: 50,
+  closeDate: "15 décembre 2026",
+  // Chiffre de preuve vérifié (ex : "120 sorties accompagnées"). Vide = masqué.
+  numProof: "",
+  booking: "https://meet.brevo.com/musicplanner",
+  site: "https://music-planner.net",
+  contact: "contact@jatedit.com"
+};
+
+const $ = id => document.getElementById(id);
+const SESSION = (crypto.randomUUID ? crypto.randomUUID() : "s" + Date.now() + Math.random().toString(16).slice(2));
+const CORE = ["coordination","stats","budget","contrats"];
+const UTM = (() => {
+  const p = new URLSearchParams(location.search), o = {};
+  ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","ref"]
+    .forEach(k => { if (p.get(k)) o[k] = p.get(k); });
+  return o;
+})();
+const LABELS = {
+  sortie_quand:{moins3:"Dans moins de 3 mois", "3a6":"Dans 3 à 6 mois", plus6:"Dans plus de 6 mois", rien:"Rien de prévu"},
+  douleur:{coordination:"Planifier et coordonner", stats:"Stats et revenus", budget:"Budget et factures", contrats:"Contrats et droits", promo:"Marketing et promotion"},
+  profil:{solo:"Artiste solo", groupe:"Groupe", label:"Label", manager:"Manager", autre:"Autre"},
+  sorties12:{"0":"Aucune", "1a2":"1 à 2", "3a5":"3 à 5", "6plus":"6 ou plus"},
+  outils:{excel:"Excel / Sheets", whatsapp:"WhatsApp", drive:"Drive / Dropbox", notion:"Notion / Trello", dedie:"Outil dédié", aucun:"Aucun outil"},
+  besoins:{coordination:"Planifier les sorties", stats:"Stats au même endroit", budget:"Budget", contrats:"Contrats et droits", visibilite:"Visibilité", contacts:"Contacts avec des pros", retours:"Retours sur ma musique", formation:"Formation"},
+  budget:{"0":"Rien, uniquement gratuit", moins10:"Moins de 10 €", "10a19":"10 à 19 €", "20a34":"20 à 34 €", "35plus":"35 € et plus"}
+};
+
+/* ---------- Lecture du DOM ---------- */
+const radio = n => document.querySelector(`input[name="${n}"]:checked`);
+const checks = n => [...document.querySelectorAll(`input[name="${n}"]:checked`)].map(i => i.value);
+const pts = n => { const r = radio(n); return r ? +(r.dataset.p || 0) : 0; };
+const nm = n => { const r = radio(n); return r ? r.value : ""; };
+const mailOk = () => /^\S+@\S+\.\S+$/.test($("mail").value.trim());
+const spotOk = s => !s || /^https?:\/\/(open\.)?spotify\.com\//i.test(s);
+const instaOk = s => !s || /^@?[A-Za-z0-9._]{1,30}$/.test(s);
+
+/* ---------- Score de priorité (jamais montré à l'artiste) ---------- */
+function score(){
+  const profil = nm("profil");
+  if (profil === "label" || profil === "manager") return { s:null, key:"label" };
+  let s = pts("sortie_quand") + pts("sorties12") + pts("budget");
+  const o = checks("outils");
+  if (o.includes("aucun")) s += 1;
+  else if (o.some(x => x !== "dedie")) s += 2;
+  const b = checks("besoins");
+  s += b.some(x => CORE.includes(x)) ? 2 : (b.length ? 1 : 0);
+  const zero = nm("budget") === "0";
+  if (s >= 10 && zero) return { s, key:"tiede" };
+  return s >= 10 ? { s, key:"chaud" } : s >= 5 ? { s, key:"tiede" } : { s, key:"froid" };
+}
+
+/* ---------- Payload ---------- */
+function collect(partial){
+  const outils = checks("outils").map(v => LABELS.outils[v] || v);
+  const besoins = checks("besoins").map(v => LABELS.besoins[v] || v);
+  return {
+    session: SESSION,
+    partial: !!partial,
+    submitted_at: new Date().toISOString(),
+    page: location.href,
+    utm: UTM,
+    referrer: document.referrer || "",
+    nom: $("nom").value.trim(),
+    email: $("mail").value.trim().toLowerCase(),
+    spotify: $("spotify").value.trim(),
+    instagram: $("insta").value.trim().replace(/^@/, ""),
+    sortie_quand: nm("sortie_quand"),
+    sortie_quand_label: LABELS.sortie_quand[nm("sortie_quand")] || "",
+    douleur: nm("douleur"),
+    douleur_label: LABELS.douleur[nm("douleur")] || "",
+    profil: nm("profil"),
+    profil_label: LABELS.profil[nm("profil")] || "",
+    sorties12: nm("sorties12"),
+    sorties12_label: LABELS.sorties12[nm("sorties12")] || "",
+    outils: outils,
+    besoins: besoins,
+    budget: nm("budget"),
+    budget_label: LABELS.budget[nm("budget")] || "",
+    consent_contact: $("rgpd").checked,
+    consent_infos: $("news").checked,
+    score: (() => { const r = score(); return r.s; })(),
+    niveau: (() => { return score().key; })(),
+    user_agent: navigator.userAgent
+  };
+}
+
+/* ---------- Envoi ---------- */
+function summary(p){
+  return [
+    "Nom : " + (p.nom || "-"),
+    "Email : " + (p.email || "-"),
+    "Spotify : " + (p.spotify || "-"),
+    "Instagram : " + (p.instagram ? "@" + p.instagram : "-"),
+    "Prochaine sortie : " + (p.sortie_quand_label || "-"),
+    "Priorité n°1 : " + (p.douleur_label || "-"),
+    "Profil : " + (p.profil_label || "-"),
+    "Sorties 12 mois : " + (p.sorties12_label || "-"),
+    "Outils : " + (p.outils.join(", ") || "-"),
+    "Besoins : " + (p.besoins.join(", ") || "-"),
+    "Budget mensuel : " + (p.budget_label || "-"),
+    "Infos Music Planner : " + (p.consent_infos ? "oui" : "non"),
+    "Session : " + p.session
+  ].join("\n");
+}
+async function send(p){
+  if (!CONFIG.endpoint) return false;
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(CONFIG.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+      signal: ctl.signal,
+      keepalive: true
+    });
+    clearTimeout(t);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return true;
+  } catch (e) {
+    console.warn("[MusicPlanner] envoi impossible", e);
+    return false;
+  }
+}
+function stash(p){ try { localStorage.setItem("mp_" + p.session, JSON.stringify(p)); } catch(e){} }
+
+/* ---------- Progression ---------- */
+function progress(){
+  let n = 0;
+  if (radio("sortie_quand")) n++;
+  if (radio("douleur")) n++;
+  if ($("nom").value.trim() && mailOk()) n++;
+  if ($("rgpd").checked) n++;
+  if (radio("profil")) n++;
+  if (radio("sorties12")) n++;
+  if (checks("outils").length) n++;
+  if (checks("besoins").length) n++;
+  if (radio("budget")) n++;
+  $("prog").style.width = (n / 9 * 100) + "%";
+}
+["f1","f2"].forEach(id => $(id).addEventListener("input", e => {
+  const el = e.target;
+  if (el.name === "besoins" && checks("besoins").length > 3) el.checked = false;
+  if (el.name === "outils" && el.checked) {
+    document.querySelectorAll('input[name="outils"]').forEach(i => {
+      if (el.value === "aucun" ? i !== el : i.value === "aucun") i.checked = false;
+    });
+  }
+  progress();
+}));
+
+/* ---------- Étape 1 ---------- */
+$("f1").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = $("err1");
+  err.textContent = "";
+  if (!radio("sortie_quand")) {
+    err.textContent = "Dis-moi quand sort ton prochain projet.";
+    return document.querySelector('[name="sortie_quand"]').closest("fieldset").scrollIntoView({block:"center"});
+  }
+  if (!radio("douleur")) {
+    err.textContent = "Choisis ce qui te prend le plus de temps.";
+    return document.querySelector('[name="douleur"]').closest("fieldset").scrollIntoView({block:"center"});
+  }
+  if (!$("nom").value.trim() || !mailOk()) {
+    err.textContent = "Indique ton nom de scène et une adresse email valide.";
+    $("nom").scrollIntoView({block:"center"});
+    return;
+  }
+  if (!spotOk($("spotify").value.trim())) {
+    err.textContent = "Le lien Spotify doit ressembler à https://open.spotify.com/artist/...";
+    $("spotify").focus();
+    return;
+  }
+  if (!instaOk($("insta").value.trim())) {
+    err.textContent = "Le compte Instagram doit être un pseudo, par exemple @toncompte.";
+    $("insta").focus();
+    return;
+  }
+  if (!$("rgpd").checked) {
+    err.textContent = "Coche la case de consentement pour que je puisse t'envoyer ton plan.";
+    $("rgpd").scrollIntoView({block:"center"});
+    return;
+  }
+  if ($("hp").value) return finish("chaud"); // bot
+  const p = collect(true);
+  stash(p);
+  send(p); // on n'attend pas : l'email est déjà en sécurité côté client
+  $("step1").classList.remove("on");
+  $("step2").classList.add("on");
+  window.scrollTo(0, 0);
+  progress();
+});
+
+/* ---------- Étape 2 ---------- */
+$("skip").addEventListener("click", () => {
+  const p = collect(true);
+  p.partial = true;
+  stash(p); send(p);
+  finish("froid", true);
+});
+
+$("f2").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = $("err2");
+  err.textContent = "";
+  if (!radio("profil")) { err.textContent = "Indique ton profil."; return document.querySelector('[name="profil"]').closest("fieldset").scrollIntoView({block:"center"}); }
+  if (!radio("sorties12")) { err.textContent = "Indique ton nombre de sorties sur 12 mois."; return document.querySelector('[name="sorties12"]').closest("fieldset").scrollIntoView({block:"center"}); }
+  if (!checks("outils").length) { err.textContent = "Choisis au moins une façon dont tu t'organises aujourd'hui."; return document.querySelector('[name="outils"]').closest("fieldset").scrollIntoView({block:"center"}); }
+  if (!checks("besoins").length) { err.textContent = "Choisis au moins un besoin."; return document.querySelector('[name="besoins"]').closest("fieldset").scrollIntoView({block:"center"}); }
+  if (!radio("budget")) { err.textContent = "Une fourchette de budget, même « rien » : c'est ce qui calibre le plan."; return document.querySelector('[name="budget"]').closest("fieldset").scrollIntoView({block:"center"}); }
+
+  const p = collect(false);
+  stash(p);
+  const btn = $("f2").querySelector("button[type=submit]");
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Envoi…";
+  const ok = await send(p);
+  btn.disabled = false; btn.textContent = label;
+  if (ok) { try { localStorage.removeItem("mp_" + p.session); } catch(e){} }
+  finish(score().key, false, p, !ok);
+});
+
+/* ---------- Écrans de fin ---------- */
+const END = {
+  chaud: {
+    t: "Ton profil correspond à ce qu'on construit",
+    p: "Comme ton prochain lancement est proche, on peut aussi en parler de vive voix : un créneau d'une heure, sans engagement.",
+    cta: "Réserver mon créneau de membre fondateur",
+    href: () => CONFIG.booking
+  },
+  tiede: {
+    t: "C'est noté, ton plan arrive",
+    p: "Si tu veux avancer plus vite, réponds simplement à cet email pour réserver une place dans la prochaine rencontre d'artistes.",
+    cta: "Réserver ma place pour la rencontre de décembre",
+    href: () => "mailto:" + CONFIG.contact + "?subject=" + encodeURIComponent("Music Planner : place pour la rencontre de décembre")
+  },
+  froid: {
+    t: "C'est noté, ton plan arrive",
+    p: "Tu recevras ton plan même sans accès à la plateforme. En attendant, tu peux voir ce que Music Planner fait et démarrer gratuitement.",
+    cta: "Découvrir Music Planner",
+    href: () => CONFIG.site
+  },
+  label: {
+    t: "Ce parcours est pensé pour les artistes",
+    p: "Music Planner existe aussi pour les labels et les managers : plusieurs artistes, plusieurs sorties, une équipe. Dis-moi ce que tu gères et je t'envoie une présentation adaptée, avec une démo.",
+    cta: "Demander une démo pour mon label",
+    href: () => "mailto:" + CONFIG.contact + "?subject=" + encodeURIComponent("Music Planner : démo label")
+  }
+};
+
+function finish(key, skipped, p, failed){
+  p = p || collect(false);
+  const end = END[key] || END.froid;
+  $("doneTitle").textContent = end.t;
+  $("doneText").textContent = end.p;
+  $("donePromise").textContent = "Ton Plan de sortie part sous 24 h ouvrées à " + (p.email || "ton adresse") + ".";
+  const cta = $("doneCta");
+  cta.textContent = end.cta;
+  cta.href = end.href();
+  $("doneFoot").textContent = failed
+    ? "L'envoi automatique n'a pas abouti. Le bouton ci-dessous ouvre un email avec tes réponses déjà remplies : un clic et c'est réglé."
+    : "Une question ? Écris à " + CONFIG.contact + ".";
+  if (failed) {
+    cta.textContent = "Envoyer mes réponses par email";
+    cta.href = "mailto:" + CONFIG.contact
+      + "?subject=" + encodeURIComponent("Music Planner : mon plan de sortie")
+      + "&body=" + encodeURIComponent(summary(p));
+  }
+  $("step1").classList.remove("on");
+  $("step2").classList.remove("on");
+  $("done").style.display = "block";
+  window.scrollTo(0, 0);
+  if (location.hash === "#test") {
+    const d = $("dbg");
+    d.style.display = "block";
+    d.textContent = "MODE TEST\nScore : " + (p.score === null ? "hors score" : p.score + "/14")
+      + " → " + p.niveau
+      + (skipped ? " (étape 2 passée)" : "")
+      + (failed ? " · ENVOI ÉCHOUÉ, repli mailto" : " · envoyé")
+      + "\n\n" + JSON.stringify(p, null, 2);
+  }
+}
+
+/* ---------- Rareté affichée depuis CONFIG ---------- */
+(function(){
+  const n = +CONFIG.places;
+  if (n > 0) $("badgePlaces").textContent = "Membres fondateurs : " + n + " places · closes le " + CONFIG.closeDate;
+  else $("badgePlaces").style.display = "none";
+  if (CONFIG.numProof) {
+    const li = document.createElement("li");
+    li.textContent = CONFIG.numProof;
+    document.querySelector(".stack").prepend(li);
+  }
+})();
+progress();
+</script>
+</body>
+</html>
